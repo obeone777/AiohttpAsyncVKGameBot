@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, List
 from sqlalchemy import Column, BigInteger, String
 from sqlalchemy.orm import relationship
 
-from kts_backend.base.models import game_user_association
 from kts_backend.store.database.sqlalchemy_base import db
 
 
@@ -16,8 +15,7 @@ class User:
     vk_id: int
     name: str
     last_name: str
-    games: List[int] = field(default_factory=list)
-    scores: List["GameScore"] = field(default_factory=list)
+    games: List["GameScore"] = field(default_factory=list)
 
 
 class UserModel(db):
@@ -25,7 +23,7 @@ class UserModel(db):
     vk_id = Column(BigInteger, primary_key=True)
     name = Column(String)
     last_name = Column(String)
-    games = relationship("GameModel", secondary=game_user_association, back_populates="players")
+    games = relationship("GameModel", secondary="game_user", back_populates="players")
 
 
 

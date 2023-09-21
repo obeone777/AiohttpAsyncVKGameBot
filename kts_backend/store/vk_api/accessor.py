@@ -4,8 +4,11 @@ from typing import Optional
 
 from aiohttp import TCPConnector
 from aiohttp.client import ClientSession
+from sqlalchemy import select, desc
 
 from kts_backend.base.base_accessor import BaseAccessor
+from kts_backend.base.models import GameUserAssociation
+from kts_backend.game.models import GameModel, Game, GameScore
 from kts_backend.store.vk_api.datas import (
     Message,
     Update,
@@ -13,6 +16,7 @@ from kts_backend.store.vk_api.datas import (
     UpdateMessage,
 )
 from kts_backend.store.vk_api.poller import Poller
+from kts_backend.users.models import UserModel, User
 
 if typing.TYPE_CHECKING:
     from kts_backend.web.app import Application
@@ -122,7 +126,7 @@ class VkApiAccessor(BaseAccessor):
             data = await resp.json()
             self.logger.info(data)
 
-    async def get_conversation_members(self, chat_id: int) -> list:
+    async def get_conversation_members(self, chat_id: int) -> list[User]:
         async with self.session.get(
             self._build_query(
                 VK_API_URL,
@@ -135,8 +139,90 @@ class VkApiAccessor(BaseAccessor):
             )
         ) as resp:
             data = await resp.json()
-            self.logger.info(data["response"]["profiles"])
-            return data["response"]["profiles"]
+            users = data["response"]["profiles"]
+            self.logger.info(users)
+            return [
+                User(
+                    vk_id=user["id"],
+                    name=user["first_name"],
+                    last_name=user["last_name"],
+                )
+                for user in users
+            ]
 
-    async def game_create(self, players: list, chat_id: int) -> None:
-        pass
+    async def get_game_by_chatid(self, chat_id: int) -> Game:
+        game_query = (
+            select(GameModel)
+            .where(GameModel.chat_id == chat_id)
+            .order_by(desc(GameModel.created_at))
+            .limit(1)
+        )
+        response = await self.app.database.orm_select(query=game_query)
+        game = response.scalar()
+        self.logger.info(game)
+        if not game:
+            return None
+        game_user_query = select(GameUserAssociation).where(
+            GameUserAssociation.game_id == game.id
+        )
+        game_user_response = await self.app.database.orm_select(
+            query=game_user_query
+        )
+        game_users = game_user_response.scalars().all()
+        self.logger.info(game_users)
+        players = [
+            GameScore(
+                points=game_user.points,
+                user_id=game_user.user_vk_id,
+                game_id=game.id,
+                user_is_active=game_user.user_is_active,
+                user_turn=game_user.user_turn,
+            )
+            for game_user in game_users
+        ]
+
+        return Game(
+            id=game.id,
+            created_at=game.created_at,
+            chat_id=game.chat_id,
+            status=game.status,
+            players=players,
+        )
+
+    async def game_create(self, chat_id: int) -> Game:
+        users = await self.get_conversation_members(chat_id=chat_id)
+        query = select(UserModel.vk_id).where(
+            UserModel.vk_id.in_([user.vk_id for user in users])
+        )
+        result = await self.app.database.orm_select(query)
+        existing_users_vk_ids = result.scalars().all()
+        new_users = [
+            UserModel(
+                vk_id=user.vk_id, name=user.name, last_name=user.last_name
+            )
+            for user in users
+            if user.vk_id not in existing_users_vk_ids
+        ]
+        new_game = GameModel(chat_id=chat_id)
+        await self.app.database.orm_add(new_users + [new_game])
+        game_id = new_game.id
+        associations = [
+            GameUserAssociation(game_id=game_id, user_vk_id=user.vk_id)
+            for user in users
+        ]
+        await self.app.database.orm_add(associations)
+        game_scores = [
+            GameScore(
+                user_id=association.user_vk_id,
+                game_id=game_id,
+            )
+            for association in associations
+        ]
+        game_dataclass = Game(
+            id=game_id,
+            created_at=new_game.created_at,
+            chat_id=chat_id,
+            players=game_scores,
+        )
+
+        return game_dataclass

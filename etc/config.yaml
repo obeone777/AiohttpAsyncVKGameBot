@@ -19,9 +19,9 @@ admin:
 database:
   host: 0.0.0.0
   port: 5432
-  user: kts_user
-  password: kts_pass
-  database: kts
+  user: lms
+  password: lms12345
+  database: lmsdb
 bot:
   token: vk1.a.mb49mtIlosq2x4lmBaPbSTXi2RAq6MhZl-nZjUYkk8z0CXWEvVoV5Hg3p6jJCXwE_ow35HDC3ryZqA_MrTFrpeyYVTY2dgm_UeeBBMTThUq_4wLfScktFrBFncC9s0l0JRHfLispYIldERcFsenxGzxjcZ60_bV0Nu2jlpkdxDZulcQcEMnuajV-9En07GqnarYf1kEhTdXnoziUSSCPKA
   group_id: 222330688

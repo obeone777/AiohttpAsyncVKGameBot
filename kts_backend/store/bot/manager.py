@@ -28,16 +28,30 @@ class BotManager:
 
 
 
-                # if update.object.message.text == "/start":
+
+
+                # Просто тесты не обращать внимание!
+                # await self.app.store.vk_api.get_conversation_members(chat_id=update.object.message.peer_id)
+                # game = await self.app.store.vk_api.get_game_by_chatid(chat_id=update.object.message.peer_id)
+                # if game is None: await self.app.store.vk_api.send_message(
+                #     Message(
+                #         user_id=update.object.message.from_id,
+                #         text='Игра не найдена'
+                #     ),
+                #     chat_id
+                # )
+                # await self.app.store.vk_api.game_create(chat_id=update.object.message.peer_id)
+                # game2 = await self.app.store.vk_api.get_game_by_chatid(chat_id=update.object.message.peer_id)
+                # if game2:
                 #     await self.app.store.vk_api.send_message(
                 #         Message(
                 #             user_id=update.object.message.from_id,
-                #             text='Игра начнется через 10 секунд 🧭',
+                #             text='Игра НАЙДЕНА!'
                 #         ),
                 #         chat_id
                 #     )
-                #     await asyncio.sleep(10)
-                #     players = await self.app.store.vk_api.get_conversation_members(chat_id=update.object.message.peer_id)
-                #     await self.app.store.vk_api.game_create(players, chat_id)
+
+
+
 
 
