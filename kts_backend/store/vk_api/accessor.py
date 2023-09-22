@@ -1,16 +1,24 @@
+import json
 import random
 import typing
 from typing import Optional
 
 from aiohttp import TCPConnector
 from aiohttp.client import ClientSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
+from sqlalchemy.orm import joinedload
 
 from kts_backend.base.base_accessor import BaseAccessor
 from kts_backend.base.models import GameUserAssociation
-from kts_backend.game.models import GameModel, Game, GameScore
+from kts_backend.game.models import (
+    GameModel,
+    Game,
+    GameScore,
+    QuestionAnswerModel,
+    QuestionAnswer,
+)
 from kts_backend.store.vk_api.datas import (
-    Message,
+    # Message,
     Update,
     UpdateObject,
     UpdateMessage,
@@ -110,7 +118,7 @@ class VkApiAccessor(BaseAccessor):
             ]
             await self.app.store.bots_manager.handle_updates(update_list)
 
-    async def send_message(self, message: Message, chat_id: int) -> None:
+    async def send_message(self, message: str, chat_id: int, keyboard) -> None:
         async with self.session.get(
             self._build_query(
                 VK_API_URL,
@@ -118,8 +126,9 @@ class VkApiAccessor(BaseAccessor):
                 params={
                     "random_id": random.randint(1, 2**32),
                     "chat_id": chat_id,
-                    "message": message.text,
+                    "message": message,
                     "access_token": self.app.config.bot.token,
+                    "keyboard": keyboard,
                 },
             )
         ) as resp:
@@ -150,9 +159,12 @@ class VkApiAccessor(BaseAccessor):
                 for user in users
             ]
 
-    async def get_game_by_chatid(self, chat_id: int) -> Game:
+    async def get_game_by_chatid(self, chat_id: int) -> list[Game, User]:
         game_query = (
             select(GameModel)
+            .options(
+                joinedload(GameModel.players).joinedload(GameModel.question)
+            )
             .where(GameModel.chat_id == chat_id)
             .order_by(desc(GameModel.created_at))
             .limit(1)
@@ -181,15 +193,39 @@ class VkApiAccessor(BaseAccessor):
             for game_user in game_users
         ]
 
-        return Game(
-            id=game.id,
-            created_at=game.created_at,
-            chat_id=game.chat_id,
-            status=game.status,
-            players=players,
+        return [
+            Game(
+                id=game.id,
+                created_at=game.created_at,
+                chat_id=game.chat_id,
+                status=game.status,
+                players=players,
+                question=game.question,
+            ),
+            [
+                User(vk_id=user.vk_id, name=user.name, last_name=user.last_name)
+                for user in game.players
+            ],
+        ]
+
+    async def get_user_by_vkid(self, vkid: int) -> User:
+        query = select(UserModel).where(UserModel.vk_id == vkid)
+        user = await self.app.database.orm_select(query)
+        user = user.scalar()
+        self.logger.info(user)
+        return User(vk_id=vkid, name=user.name, last_name=user.last_name)
+
+    async def get_questuion(self):
+        query = select(QuestionAnswerModel).order_by(func.random()).limit(1)
+        result = await self.app.database.orm_select(query)
+        result = result.scalar()
+        return QuestionAnswer(
+            id=result.id,
+            question_text=result.question_text,
+            answer_text=result.answer_text,
         )
 
-    async def game_create(self, chat_id: int) -> Game:
+    async def game_create(self, chat_id: int) -> list[Game, User]:
         users = await self.get_conversation_members(chat_id=chat_id)
         query = select(UserModel.vk_id).where(
             UserModel.vk_id.in_([user.vk_id for user in users])
@@ -223,6 +259,101 @@ class VkApiAccessor(BaseAccessor):
             created_at=new_game.created_at,
             chat_id=chat_id,
             players=game_scores,
+            question=new_game.question,
         )
 
-        return game_dataclass
+        return [game_dataclass, new_users]
+
+    async def one_button_creater(self, text: str, color: str) -> dict:
+        return {
+            "action": {
+                "type": "text",
+                "payload": '{"button": "' + "1" + '"}',
+                "label": text,
+            },
+            "color": color,
+        }
+
+    async def get_preview_keyboard(self) -> str:
+        keyboard = {
+            "inline": True,
+            "buttons": [
+                [
+                    await self.one_button_creater(
+                        "Узнай обо мне 🌍", "positive"
+                    ),
+                    await self.one_button_creater("Старт игры 🚀", "positive"),
+                ]
+            ],
+        }
+        keyboard = json.dumps(keyboard, ensure_ascii=False).encode("utf-8")
+        return str(keyboard.decode("utf-8"))
+
+    async def get_default_keyboard(self) -> str:
+        keyboard = {
+            "inline": True,
+            "buttons": [
+                [await self.one_button_creater("Бот отвечает", "positive")]
+            ],
+        }
+        keyboard = json.dumps(keyboard, ensure_ascii=False).encode("utf-8")
+        return str(keyboard.decode("utf-8"))
+
+    async def get_game_keyboard(self) -> str:
+        keyboard = {
+            "inline": True,
+            "buttons": [
+                [
+                    await self.one_button_creater(
+                        "Выбрать букву 💬", "positive"
+                    ),
+                    await self.one_button_creater(
+                        "Назвать слово 🗣", "positive"
+                    ),
+                ]
+            ],
+        }
+        keyboard = json.dumps(keyboard, ensure_ascii=False).encode("utf-8")
+        return str(keyboard.decode("utf-8"))
+
+    async def about_game(self):
+        return """Привет, я бот "ПолеЧудес". Правила игры просты:
+                При старте игры в чат присылается загадка и тебе необходимо либо назвать букву, либо попытаться сразу угадать слово.
+                При верно угаданной букве, откроются все выбранные буквы, которые присутствуют в слове и ты получишь +1 очко.
+                При неудачном варианте, ход переходит к следующему игроку.
+                Однако если ты назовешь неверное слово, ты выбываешь. Если же названо верное слово, ты становишься победителем"""
+
+    async def start_game(self, chat_id: int) -> list[Game, User]:
+        game = await self.game_create(chat_id)
+        user = game[1][0]
+        question = await self.get_questuion()
+        await self.send_message(
+            message=f"Внимание загадка! {question.question_text}?",
+            chat_id=chat_id - 2000000000,
+            keyboard=await self.get_default_keyboard(),
+        )
+        await self.send_message(
+            message=f"{user.name} {user.last_name} твой ход! Выбери букву или назови слово.",
+            chat_id=chat_id - 2000000000,
+            keyboard=await self.get_game_keyboard(),
+        )
+        return game
+
+    # async def choosing_letter(self, user, chat_id, update: Update, game_lst: list[Game, User]):
+    #     if (
+    #         len(update.object.message.text) != 1
+    #         or update.object.message.text not in game_lst[0].question
+    #     ):
+    #         await self.send_message(
+    #             message=f"{user.name}, {user.last_name} такой буквы нет в слове!",
+    #             chat_id=chat_id,
+    #             keyboard=self.get_default_keyboard(),
+    #         )
+    #         user = ...
+    #         return user
+    #     await self.send_message(
+    #         message=f"{user.name}, {user.last_name} правильно, буква угадана! + 1 балл!",
+    #         chat_id=chat_id,
+    #         keyboard=self.get_default_keyboard(),
+    #     )
+    #     return user

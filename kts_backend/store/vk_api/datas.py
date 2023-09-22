@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
 
-@dataclass
-class Message:
-    user_id: int
-    text: str
+# @dataclass
+# class Message:
+#     text: str
+#     user_id: int = None
 
 
 @dataclass
