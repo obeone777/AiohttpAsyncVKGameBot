@@ -7,7 +7,7 @@ from kts_backend.store.database.sqlalchemy_base import db
 
 @dataclass
 class GameScore:
-    user_id: int
+    user_vk_id: int
     game_id: int
     points: int = 0
     user_is_active: bool = True

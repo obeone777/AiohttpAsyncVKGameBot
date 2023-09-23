@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, List, Optional, TypeVar, Union, Type, Dict, Any
 
 from sqlalchemy.engine import ChunkedIteratorResult
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -48,3 +48,12 @@ class Database:
         async with self.session() as session:
             result: ChunkedIteratorResult = await session.execute(query)
             return result
+
+    async def orm_update(self, model: Type[TypeVar], primary_keys: Dict[str, Any], update_values: Dict[str, Any]):
+        async with self.session() as session:
+            obj = await session.get(model, primary_keys)
+            if obj:
+                for key, value in update_values.items():
+                    setattr(obj, key, value)
+                await session.commit()
+

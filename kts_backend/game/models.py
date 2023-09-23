@@ -10,20 +10,20 @@ from kts_backend.store.database.sqlalchemy_base import db
 
 
 @dataclass
-class Game:
-    id: int
-    created_at: datetime
-    chat_id: int
-    question: str
-    status: bool = True
-    players: List[GameScore] = field(default_factory=list)
-
-
-@dataclass
 class QuestionAnswer:
     id: int
     question_text: str
     answer_text: str
+
+
+@dataclass
+class Game:
+    id: int
+    created_at: datetime
+    chat_id: int
+    question: QuestionAnswer
+    status: bool = True
+    players: List[GameScore] = field(default_factory=list)
 
 
 class GameModel(db):
