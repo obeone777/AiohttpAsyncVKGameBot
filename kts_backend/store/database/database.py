@@ -4,7 +4,7 @@ from sqlalchemy.engine import ChunkedIteratorResult
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from kts_backend.store.database.sqlalchemy_base import db
+from kts_backend.store.database.sqlalchemy_base import mapper_registry as db
 
 
 if TYPE_CHECKING:

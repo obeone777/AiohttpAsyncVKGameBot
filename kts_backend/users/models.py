@@ -3,30 +3,27 @@ from typing import TYPE_CHECKING, List
 from sqlalchemy import Column, BigInteger, String
 from sqlalchemy.orm import relationship
 
-from kts_backend.store.database.sqlalchemy_base import db
-
+from kts_backend.base.models import game_user_table
+from kts_backend.store.database.sqlalchemy_base import mapper_registry
 
 if TYPE_CHECKING:
-    from kts_backend.game.models import GameScore
+    from kts_backend.game.models import Game
 
 
+@mapper_registry.mapped
 @dataclass
 class User:
-    vk_id: int
-    name: str
-    last_name: str
-    games: List["GameScore"] = field(default_factory=list)
-
-
-class UserModel(db):
     __tablename__ = "users"
-    vk_id = Column(BigInteger, primary_key=True)
-    name = Column(String)
-    last_name = Column(String)
-    games = relationship("GameModel", secondary="game_user", back_populates="players")
 
-
-
-
-
-
+    __sa_dataclass_metadata_key__ = "sa"
+    vk_id: int = field(metadata={"sa": Column(BigInteger, primary_key=True)})
+    name: str = field(metadata={"sa": Column(String)})
+    last_name: str = field(metadata={"sa": Column(String)})
+    games: List["Game"] = field(
+        default_factory=list,
+        metadata={
+            "sa": relationship(
+                "Game", secondary=game_user_table, back_populates="players"
+            )
+        },
+    )

@@ -2,44 +2,72 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import Column, String, BigInteger, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, String, BigInteger, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
-from kts_backend.base.models import GameScore
-from kts_backend.store.database.sqlalchemy_base import db
+from kts_backend.base.models import GameScore, game_user_table
+from kts_backend.store.database.sqlalchemy_base import mapper_registry
+from kts_backend.users.models import User
 
 
+@mapper_registry.mapped
 @dataclass
 class QuestionAnswer:
-    id: int
-    question_text: str
-    answer_text: str
+    __tablename__ = "questions"
+
+    __sa_dataclass_metadata_key__ = "sa"
+    id: int = field(
+        init=False,
+        metadata={
+            "sa": Column(BigInteger, primary_key=True, autoincrement=True)
+        },
+    )
+    question_text: str = field(metadata={"sa": Column(String)})
+    answer_text: str = field(metadata={"sa": Column(String)})
+    games: List["Game"] = field(
+        default_factory=list,
+        metadata={"sa": relationship("Game", back_populates="question")},
+    )
 
 
+@mapper_registry.mapped
 @dataclass
 class Game:
-    id: int
-    created_at: datetime
-    chat_id: int
-    question: QuestionAnswer
-    status: bool = True
-    players: List[GameScore] = field(default_factory=list)
-
-
-class GameModel(db):
     __tablename__ = "games"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    chat_id = Column(BigInteger)
-    status = Column(Boolean, default=True)
-    question_id = Column(BigInteger, ForeignKey('questions.id'))
-    question = relationship("QuestionAnswerModel", back_populates="games")
-    players = relationship("UserModel", secondary="game_user", back_populates="games")
 
-
-class QuestionAnswerModel(db):
-    __tablename__ = 'questions'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    question_text = Column(String)
-    answer_text = Column(String)
-    games = relationship("GameModel", back_populates="question")
+    __sa_dataclass_metadata_key__ = "sa"
+    id: int = field(
+        init=False,
+        metadata={
+            "sa": Column(BigInteger, primary_key=True, autoincrement=True)
+        },
+    )
+    chat_id: int = field(default=None, metadata={"sa": Column(BigInteger)})
+    question_id: int = field(
+        default=None,
+        metadata={"sa": Column(BigInteger, ForeignKey("questions.id"))},
+    )
+    question: QuestionAnswer = field(
+        default=None, metadata={"sa": relationship("QuestionAnswer")}
+    )
+    created_at: datetime = field(
+        default_factory=datetime.utcnow, metadata={"sa": Column(DateTime)}
+    )
+    status: str = field(default="start", metadata={"sa": Column(String)})
+    turn_user_id: int = field(default=0, metadata={"sa": Column(BigInteger)})
+    players: List[User] = field(
+        default_factory=list,
+        metadata={
+            "sa": relationship(
+                "User", secondary=game_user_table, back_populates="games"
+            )
+        },
+    )
+    scores: List[GameScore] = field(
+        default_factory=list,
+        metadata={
+            "sa": relationship(
+                "GameScore", foreign_keys=[game_user_table.c.game_id]
+            )
+        },
+    )

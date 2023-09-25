@@ -11,11 +11,13 @@ class Store:
     def __init__(self, app: "Application", *args, **kwargs):
         from kts_backend.store.bot.manager import BotManager
         from kts_backend.store.vk_api.accessor import VkApiAccessor
-        from kts_backend.users.accessor import UserAccessor
+        from kts_backend.store.users.accessor import UserAccessor
+        from kts_backend.store.game.accessor import GameAccessor
 
-        self.user = UserAccessor()
+        self.user = UserAccessor(app)
         self.vk_api = VkApiAccessor(app)
         self.bots_manager = BotManager(app)
+        self.game = GameAccessor(app)
 
 def setup_store(app: "Application"):
     app.database = Database(app)

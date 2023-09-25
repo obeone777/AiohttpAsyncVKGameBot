@@ -1,4 +1,3 @@
-from aiohttp import web
 from aiohttp.abc import Request
 
 
@@ -8,7 +7,6 @@ import typing
 from aiohttp.web_exceptions import HTTPException, HTTPUnprocessableEntity
 from aiohttp.web_middlewares import middleware
 from aiohttp_apispec import validation_middleware
-from aiohttp_session import get_session
 
 from kts_backend.web.utils import error_json_response
 

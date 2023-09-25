@@ -1,6 +1,7 @@
 import typing
 from logging import getLogger
 
+from kts_backend.store.bot.text_constants import preview_choice_list
 from kts_backend.store.vk_api.datas import Update
 
 if typing.TYPE_CHECKING:
@@ -16,30 +17,26 @@ class BotManager:
     async def handle_updates(self, updates: list[Update]):
         if updates is not None:
             for update in updates:
-                chat_id = update.object.message.peer_id - 2000000000
-                current_game = await self.app.store.vk_api.get_game_by_chatid(
+                chat_id = await self.app.store.game.chat_id_converter(update.object.message.peer_id)
+                current_game = await self.app.store.game.get_game(
                     update.object.message.peer_id
                 )
-                if current_game and current_game[0].status == True:
-                    await self.app.store.vk_api.game_process(
+                if current_game and current_game.status == "start":
+                    await self.app.store.game.game_process(
                         game=current_game, update=update, chat_id=chat_id
                     )
                 elif (
-                    update.object.message.text
-                    == "[club222330688|@club222330688] Узнай обо мне 🌍"
-                    or update.object.message.text == "[club222330688|API KTS] Узнай обо мне 🌍"
+                    update.object.message.text in preview_choice_list[:2]
                 ):
                     await self.app.store.vk_api.send_message(
-                        message=await self.app.store.vk_api.about_game(),
+                        message=await self.app.store.game.about_game(),
                         chat_id=chat_id,
                         keyboard=await self.app.store.vk_api.get_preview_keyboard(),
                     )
                 elif (
-                    update.object.message.text
-                    == "[club222330688|@club222330688] Старт игры 🚀"
-                    or update.object.message.text == "[club222330688|API KTS] Старт игры 🚀"
+                    update.object.message.text in preview_choice_list[2:]
                 ):
-                    await self.app.store.vk_api.start_game(
+                    await self.app.store.game.start_game(
                         chat_id=update.object.message.peer_id
                     )
                 else:

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from sqlalchemy import BigInteger, Boolean, Column, ForeignKey
+from sqlalchemy import BigInteger, Boolean, Column, ForeignKey, Table, MetaData
 
-from kts_backend.store.database.sqlalchemy_base import db
+from kts_backend.store.database.sqlalchemy_base import mapper_registry
 
 
 @dataclass
@@ -11,14 +11,19 @@ class GameScore:
     game_id: int
     points: int = 0
     user_is_active: bool = True
-    user_turn: bool = False
 
 
-class GameUserAssociation(db):
-    __tablename__ = 'game_user'
-    game_id = Column(BigInteger, ForeignKey('games.id'), primary_key=True)
-    user_vk_id = Column(BigInteger, ForeignKey('users.vk_id'), primary_key=True)
-    points = Column(BigInteger, default=0)
-    user_is_active = Column(Boolean, default=True)
-    user_turn = Column(Boolean, default=False)
+metadata = MetaData()
 
+game_user_table = Table(
+    "game_user",
+    mapper_registry.metadata,
+    Column("game_id", BigInteger, ForeignKey("games.id"), primary_key=True),
+    Column(
+        "user_vk_id", BigInteger, ForeignKey("users.vk_id"), primary_key=True
+    ),
+    Column("points", BigInteger, default=0),
+    Column("user_is_active", Boolean, default=True),
+)
+
+mapper_registry.map_imperatively(GameScore, game_user_table)
