@@ -8,3 +8,20 @@ sentry:
   env: dev
 
 store: {}
+
+user_token: OTY3NmVjYWYtZTJhNC00NzNhLTgwM2YtZGY3OTBkYTM3YWFhXzU2NTE=
+
+session:
+  key: CaY5iCkYtN7DqXdiYK1BvmGrQuaSA4Tl4bEk9my0jc0=
+admin:
+  email: admin@admin.com
+  password: admin
+database:
+  host: 0.0.0.0
+  port: 5432
+  user: lms
+  password: lms12345
+  database: lmsdb
+bot:
+  token: vk1.a.mb49mtIlosq2x4lmBaPbSTXi2RAq6MhZl-nZjUYkk8z0CXWEvVoV5Hg3p6jJCXwE_ow35HDC3ryZqA_MrTFrpeyYVTY2dgm_UeeBBMTThUq_4wLfScktFrBFncC9s0l0JRHfLispYIldERcFsenxGzxjcZ60_bV0Nu2jlpkdxDZulcQcEMnuajV-9En07GqnarYf1kEhTdXnoziUSSCPKA
+  group_id: 222330688
