@@ -1,7 +1,7 @@
 import random
 from typing import Union, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, and_
 from sqlalchemy.orm import joinedload
 
 from kts_backend.base.base_accessor import BaseAccessor
@@ -217,14 +217,17 @@ class GameAccessor(BaseAccessor):
                 if len(set(revealed_indexes)) == len(
                     current_game.question.answer_text
                 ):
+                    await self.plus_points("word", current_game, user)
                     await self.game_over(user, chat_id, current_game)
                 else:
+                    await self.plus_points("letter", current_game, user)
                     await self.app.store.vk_api.send_message(
                         message=f"{display_word}. Снова выберите букву или слово",
                         chat_id=chat_id,
                         keyboard=await self.app.store.vk_api.get_game_keyboard(),
                     )
                     games[current_game.id] = new_message
+
             else:
                 await self.app.store.vk_api.send_message(
                     message=f"{user.name} такой буквы нет!",
@@ -252,6 +255,7 @@ class GameAccessor(BaseAccessor):
             )
         else:
             if new_message.lower() == current_game.question.answer_text.lower():
+                await self.plus_points("word", current_game, user)
                 await self.game_over(user, chat_id, current_game)
             else:
                 await self.app.store.vk_api.send_message(
@@ -310,3 +314,17 @@ class GameAccessor(BaseAccessor):
 
     async def chat_id_converter(self, chat_id: int) -> int:
         return chat_id - 2000000000
+
+    async def plus_points(self, type: str, game: Game, user: User) -> None:
+        query = select(GameScore.points).where(and_(GameScore.game_id == game.id, GameScore.user_vk_id == user.vk_id))
+        result = await self.app.database.orm_select(query)
+        result = result.scalar()
+        if type == "letter":
+            new_points = result + 1
+        else:
+            new_points = result + 10
+        await self.app.database.orm_update(
+            GameScore,
+            {"game_id": game.id, "user_vk_id": user.vk_id},
+            {"points": new_points}
+        )

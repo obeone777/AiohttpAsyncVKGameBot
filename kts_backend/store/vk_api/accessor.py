@@ -1,7 +1,8 @@
+import asyncio
 import json
 import random
 import typing
-from typing import Optional
+from typing import Optional, List
 
 from aiohttp import TCPConnector
 from aiohttp.client import ClientSession
@@ -13,6 +14,7 @@ from kts_backend.store.vk_api.datas import (
     UpdateMessage,
 )
 from kts_backend.store.vk_api.poller import Poller
+from kts_backend.store.vk_api.worker import Worker
 from kts_backend.users.models import User
 
 if typing.TYPE_CHECKING:
@@ -29,6 +31,8 @@ class VkApiAccessor(BaseAccessor):
         self.server: Optional[str] = None
         self.poller: Optional[Poller] = None
         self.ts: Optional[int] = None
+        self.queue: Optional[asyncio.Queue] = None
+        self.workers: List[Worker] = []
 
     async def connect(self, app: "Application"):
         self.session = ClientSession(connector=TCPConnector(verify_ssl=False))
@@ -36,15 +40,23 @@ class VkApiAccessor(BaseAccessor):
             await self._get_long_poll_service()
         except Exception as e:
             self.logger.error("Exception", exc_info=e)
-        self.poller = Poller(app.store)
+        self.queue = asyncio.Queue()
+        self.poller = Poller(app.store, self.queue)
         self.logger.info("start polling")
         await self.poller.start()
+        self.workers = [Worker(app.store, self.queue) for _ in range(3)]
+        for worker in self.workers:
+            asyncio.create_task(worker.start())
 
     async def disconnect(self, app: "Application"):
         if self.session:
             await self.session.close()
         if self.poller:
+            self.logger.info("stop polling")
             await self.poller.stop()
+        for worker in self.workers:
+            self.logger.info("stop workers")
+            await worker.stop()
 
     @staticmethod
     def _build_query(host: str, method: str, params: dict) -> str:
@@ -105,7 +117,7 @@ class VkApiAccessor(BaseAccessor):
                 )
                 for update in raw_updates
             ]
-            await self.app.store.bots_manager.handle_updates(update_list)
+            return update_list
 
     async def send_message(self, message: str, chat_id: int, keyboard) -> None:
         async with self.session.get(

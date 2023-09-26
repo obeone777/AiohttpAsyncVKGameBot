@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class UpdateMessage:
     from_id: int

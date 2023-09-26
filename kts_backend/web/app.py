@@ -21,9 +21,7 @@ class Request(AiohttpRequest):
     def app(self) -> Application:
         return super().app()
 
-
 app = Application()
-
 
 def setup_app(config_path: str) -> Application:
     setup_logging(app)
