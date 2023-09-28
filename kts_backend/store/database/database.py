@@ -36,24 +36,30 @@ class Database:
         if self._engine:
             await self._engine.dispose()
 
+#эти методы изменятся после добавление select for update
+
     async def orm_add(self, obj: Union[TypeVar, List[TypeVar]]):
-        async with self.session() as session:
-            if isinstance(obj, list):
-                session.add_all(obj)
-            else:
-                session.add(obj)
-            await session.commit()
+        session = self.app.store.bots_manager.session
+        if isinstance(obj, list):
+            session.add_all(obj)
+        else:
+            session.add(obj)
+        await session.commit()
 
     async def orm_select(self, query) -> ChunkedIteratorResult:
-        async with self.session() as session:
-            result: ChunkedIteratorResult = await session.execute(query)
-            return result
+        session = self.app.store.bots_manager.session
+        result: ChunkedIteratorResult = await session.execute(query)
+        return result
 
     async def orm_update(self, model: Type[TypeVar], primary_keys: Dict[str, Any], update_values: Dict[str, Any]):
-        async with self.session() as session:
-            obj = await session.get(model, primary_keys)
-            if obj:
-                for key, value in update_values.items():
-                    setattr(obj, key, value)
-                await session.commit()
+        session = self.app.store.bots_manager.session
+        obj = await session.get(model, primary_keys)
+        if obj:
+            for key, value in update_values.items():
+                setattr(obj, key, value)
+        await session.commit()
 
+    async def orm_list_update(self, query) -> None:
+        session = self.app.store.bots_manager.session
+        await session.execute(query)
+        session.commit()

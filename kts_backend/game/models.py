@@ -71,3 +71,5 @@ class Game:
             )
         },
     )
+    letters_revealed: str = field(default="", metadata={"sa": Column(String)})
+    last_action: str = field(default="", metadata={"sa": Column(String)})

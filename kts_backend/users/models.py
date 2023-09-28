@@ -19,6 +19,7 @@ class User:
     vk_id: int = field(metadata={"sa": Column(BigInteger, primary_key=True)})
     name: str = field(metadata={"sa": Column(String)})
     last_name: str = field(metadata={"sa": Column(String)})
+    total_points: int = field(default=0, metadata={"sa": Column(BigInteger)})
     games: List["Game"] = field(
         default_factory=list,
         metadata={
