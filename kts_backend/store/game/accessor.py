@@ -6,7 +6,8 @@ from sqlalchemy.orm import joinedload
 
 from kts_backend.base.base_accessor import BaseAccessor
 from kts_backend.base.models import GameScore
-from kts_backend.game.models import Game, QuestionAnswer
+from kts_backend.game.models import Game
+from kts_backend.question.models import QuestionAnswer
 from kts_backend.store.game.text_constants import (
     text_about_game,
     choice_list,

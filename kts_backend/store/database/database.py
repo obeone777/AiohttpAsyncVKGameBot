@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import TYPE_CHECKING, List, Optional, TypeVar, Union, Type, Dict, Any
 
 from sqlalchemy.engine import ChunkedIteratorResult
@@ -5,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from kts_backend.store.database.sqlalchemy_base import mapper_registry as db
-
 
 if TYPE_CHECKING:
     from kts_backend.web.app import Application
@@ -17,6 +17,7 @@ class Database:
         self._engine: Optional[AsyncEngine] = None
         self._db: Optional[declarative_base] = None
         self.session: Optional[AsyncSession] = None
+        self.logger = getLogger()
 
     @property
     def url_for_db(self):
@@ -36,30 +37,28 @@ class Database:
         if self._engine:
             await self._engine.dispose()
 
-#эти методы изменятся после добавление select for update
-
-    async def orm_add(self, obj: Union[TypeVar, List[TypeVar]]):
-        session = self.app.store.bots_manager.session
-        if isinstance(obj, list):
-            session.add_all(obj)
-        else:
-            session.add(obj)
-        await session.commit()
+    async def orm_add(self, obj: Union[TypeVar, List[TypeVar]], from_action: str = "bot"):
+        async with self.session() as session:
+            if isinstance(obj, list):
+                session.add_all(obj)
+            else:
+                session.add(obj)
+            await session.commit()
 
     async def orm_select(self, query) -> ChunkedIteratorResult:
-        session = self.app.store.bots_manager.session
-        result: ChunkedIteratorResult = await session.execute(query)
-        return result
+        async with self.session() as session:
+            result: ChunkedIteratorResult = await session.execute(query)
+            return result
 
     async def orm_update(self, model: Type[TypeVar], primary_keys: Dict[str, Any], update_values: Dict[str, Any]):
-        session = self.app.store.bots_manager.session
-        obj = await session.get(model, primary_keys)
-        if obj:
-            for key, value in update_values.items():
-                setattr(obj, key, value)
-        await session.commit()
+        async with self.session() as session:
+            obj = await session.get(model, primary_keys)
+            if obj:
+                for key, value in update_values.items():
+                    setattr(obj, key, value)
+                await session.commit()
 
     async def orm_list_update(self, query) -> None:
-        session = self.app.store.bots_manager.session
-        await session.execute(query)
-        session.commit()
+        async with self.session() as session:
+            await session.execute(query)
+            session.commit()

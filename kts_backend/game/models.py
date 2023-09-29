@@ -6,28 +6,9 @@ from sqlalchemy import Column, String, BigInteger, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
 from kts_backend.base.models import GameScore, game_user_table
+from kts_backend.question.models import QuestionAnswer
 from kts_backend.store.database.sqlalchemy_base import mapper_registry
 from kts_backend.users.models import User
-
-
-@mapper_registry.mapped
-@dataclass
-class QuestionAnswer:
-    __tablename__ = "questions"
-
-    __sa_dataclass_metadata_key__ = "sa"
-    id: int = field(
-        init=False,
-        metadata={
-            "sa": Column(BigInteger, primary_key=True, autoincrement=True)
-        },
-    )
-    question_text: str = field(metadata={"sa": Column(String)})
-    answer_text: str = field(metadata={"sa": Column(String)})
-    games: List["Game"] = field(
-        default_factory=list,
-        metadata={"sa": relationship("Game", back_populates="question")},
-    )
 
 
 @mapper_registry.mapped
@@ -67,7 +48,7 @@ class Game:
         default_factory=list,
         metadata={
             "sa": relationship(
-                "GameScore", foreign_keys=[game_user_table.c.game_id]
+                "GameScore", foreign_keys=[game_user_table.c.game_id], overlaps="games,players"
             )
         },
     )
