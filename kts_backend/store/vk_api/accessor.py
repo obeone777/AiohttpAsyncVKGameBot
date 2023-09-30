@@ -44,7 +44,7 @@ class VkApiAccessor(BaseAccessor):
         self.poller = Poller(app.store, self.queue)
         self.logger.info("start polling")
         await self.poller.start()
-        self.workers = [Worker(app.store, self.queue) for _ in range(3)]
+        self.workers = [Worker(app.store, self.queue) for _ in range(5)]
         for worker in self.workers:
             asyncio.create_task(worker.start())
 
@@ -177,9 +177,14 @@ class VkApiAccessor(BaseAccessor):
             "buttons": [
                 [
                     await self.one_button_creater(
-                        "Узнай обо мне 🌍", "positive"
+                        "Инфо 🌍", "positive"
                     ),
-                    await self.one_button_creater("Старт игры 🚀", "positive"),
+                    await self.one_button_creater("Старт 🚀", "positive"),
+                ],
+                [
+                    await self.one_button_creater(
+                        "Таблица Лидеров 🏆", "positive"
+                    )
                 ]
             ],
         }
@@ -190,7 +195,7 @@ class VkApiAccessor(BaseAccessor):
         keyboard = {
             "inline": True,
             "buttons": [
-                [await self.one_button_creater("Бот отвечает", "positive")]
+                [await self.one_button_creater("Бот отвечает", "primary")]
             ],
         }
         keyboard = json.dumps(keyboard, ensure_ascii=False).encode("utf-8")
@@ -203,9 +208,16 @@ class VkApiAccessor(BaseAccessor):
                 [
                     await self.one_button_creater(
                         "Выбрать букву 💬", "positive"
-                    ),
+                    )
+                ],
+                [
                     await self.one_button_creater(
                         "Назвать слово 🗣", "positive"
+                    ),
+                ],
+                [
+                    await self.one_button_creater(
+                        "Остановить игру ⛔", "negative"
                     ),
                 ]
             ],

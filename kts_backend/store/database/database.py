@@ -61,4 +61,4 @@ class Database:
     async def orm_list_update(self, query) -> None:
         async with self.session() as session:
             await session.execute(query)
-            session.commit()
+            await session.commit()

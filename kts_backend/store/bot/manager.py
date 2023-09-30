@@ -16,7 +16,9 @@ class BotManager:
 
     async def handle_updates(self, update: Update):
         if update is not None:
-            chat_id = await self.app.store.game.chat_id_converter(update.object.message.peer_id)
+            chat_id = await self.app.store.game.chat_id_converter(
+                update.object.message.peer_id
+            )
             current_game = await self.app.store.game.get_game(
                 update.object.message.peer_id
             )
@@ -25,7 +27,8 @@ class BotManager:
                     game=current_game, update=update, chat_id=chat_id
                 )
             elif (
-                update.object.message.text.split("] ")[-1] in preview_choice_list[0]
+                update.object.message.text.split("] ")[-1]
+                in preview_choice_list[0]
             ):
                 await self.app.store.vk_api.send_message(
                     message=await self.app.store.game.about_game(),
@@ -33,10 +36,22 @@ class BotManager:
                     keyboard=await self.app.store.vk_api.get_preview_keyboard(),
                 )
             elif (
-                update.object.message.text.split("] ")[-1] in preview_choice_list[1]
+                update.object.message.text.split("] ")[-1]
+                in preview_choice_list[1]
             ):
                 await self.app.store.game.start_game(
                     chat_id=update.object.message.peer_id
+                )
+            elif (
+                update.object.message.text.split("] ")[-1]
+                in preview_choice_list[2]
+            ):
+                await self.app.store.vk_api.send_message(
+                    message=await self.app.store.game.get_world_leaderboard(
+                        update.object.message.peer_id
+                    ),
+                    chat_id=chat_id,
+                    keyboard=await self.app.store.vk_api.get_preview_keyboard(),
                 )
             else:
                 await self.app.store.vk_api.send_message(
