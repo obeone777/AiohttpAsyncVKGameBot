@@ -1,4 +1,3 @@
-from aiohttp.web_exceptions import HTTPConflict
 from aiohttp_apispec import docs, request_schema, response_schema
 from sqlalchemy.exc import IntegrityError
 from kts_backend.question.mixins import AuthRequiredMixin
@@ -19,5 +18,5 @@ class QuestionAddView(AuthRequiredMixin, View):
                 question, answer
             )
             return json_response(data=QuestionSchema().dump(question_answer))
-        except IntegrityError:
-            raise HTTPConflict
+        except IntegrityError as e:
+            raise f'Произошла ошибка: {e}'

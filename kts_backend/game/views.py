@@ -11,7 +11,7 @@ class LeaderboardView(View):
     @docs(tags=["Game"], summary="Get Leaderboard")
     @response_schema(LeaderBoardSchema, 200)
     async def get(self):
-        leaderboard = await self.store.game.get_leaderboard_api()
+        leaderboard = await self.store.game.get_leaderboard()
         logger = Logger("game")
         logger.info(leaderboard)
         return json_response(data=LeaderBoardSchema(many=True).dump(leaderboard))

@@ -150,7 +150,7 @@ class VkApiAccessor(BaseAccessor):
         ) as resp:
             data = await resp.json()
             users = data["response"]["profiles"]
-            self.logger.info(users)
+            self.logger.info(f'Я ТУТ {users}')
             return [
                 User(
                     vk_id=user["id"],
