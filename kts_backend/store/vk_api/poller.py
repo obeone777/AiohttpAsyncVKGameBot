@@ -6,8 +6,9 @@ from kts_backend.store import Store
 
 
 class Poller:
-    def __init__(self, store: Store):
+    def __init__(self, store: Store, queue: asyncio.Queue):
         self.store = store
+        self.queue = queue
         self.is_running = False
         self.poll_task: Optional[Task] = None
 
@@ -17,9 +18,15 @@ class Poller:
 
     async def stop(self):
         self.is_running = False
-        await self.poll_task
+        if self.poll_task:
+            self.poll_task.cancel()
+            try:
+                await self.poll_task
+            except asyncio.CancelledError:
+                pass
 
     async def poll(self):
         while self.is_running:
             updates = await self.store.vk_api.poll()
-            await self.store.bots_manager.handle_updates(updates)
+            for update in updates:
+                await self.queue.put(update)

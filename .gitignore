@@ -88,7 +88,7 @@ cmake-build-*/
 
 # IntelliJ
 out/
-
+.idea
 # mpeltonen/sbt-idea plugin
 .idea_modules/
 
@@ -331,4 +331,4 @@ pyrightconfig.json
 pyvenv.cfg
 pip-selfcheck.json
 
-# End of https://www.toptal.com/developers/gitignore/api/macos,pycharm,venv,python
+# End of https://www.toptal.com/developers/gitignore/api/macos,pycharm,venv,python.idea/

@@ -1,11 +1,11 @@
+from logging import getLogger
 from typing import TYPE_CHECKING, List, Optional, TypeVar, Union, Type, Dict, Any
 
 from sqlalchemy.engine import ChunkedIteratorResult
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from kts_backend.store.database.sqlalchemy_base import db
-
+from kts_backend.store.database.sqlalchemy_base import mapper_registry as db
 
 if TYPE_CHECKING:
     from kts_backend.web.app import Application
@@ -17,6 +17,7 @@ class Database:
         self._engine: Optional[AsyncEngine] = None
         self._db: Optional[declarative_base] = None
         self.session: Optional[AsyncSession] = None
+        self.logger = getLogger()
 
     @property
     def url_for_db(self):
@@ -36,7 +37,7 @@ class Database:
         if self._engine:
             await self._engine.dispose()
 
-    async def orm_add(self, obj: Union[TypeVar, List[TypeVar]]):
+    async def orm_add(self, obj: Union[TypeVar, List[TypeVar]], from_action: str = "bot"):
         async with self.session() as session:
             if isinstance(obj, list):
                 session.add_all(obj)
@@ -57,3 +58,7 @@ class Database:
                     setattr(obj, key, value)
                 await session.commit()
 
+    async def orm_list_update(self, query) -> None:
+        async with self.session() as session:
+            await session.execute(query)
+            await session.commit()

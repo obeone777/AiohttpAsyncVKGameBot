@@ -1,12 +1,6 @@
 from dataclasses import dataclass
 
 
-# @dataclass
-# class Message:
-#     text: str
-#     user_id: int = None
-
-
 @dataclass
 class UpdateMessage:
     from_id: int
