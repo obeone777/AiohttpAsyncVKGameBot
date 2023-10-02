@@ -11,14 +11,22 @@ from kts_backend.base.models import GameScore
 from kts_backend.game.models import Game
 from kts_backend.question.models import Question
 from kts_backend.store.bot.text_constants import next_turn
-from kts_backend.store.game.text_constants import (action_for_decision,
-                                                   choice_list, choose_again,
-                                                   choose_one_letter,
-                                                   chose_word, failed_letter,
-                                                   game_leaderboard, game_over,
-                                                   id_constant, letter_exist,
-                                                   no_questions, noone_played,
-                                                   total_points, user_kicked)
+from kts_backend.store.game.text_constants import (
+    action_for_decision,
+    choice_list,
+    choose_again,
+    choose_one_letter,
+    chose_word,
+    failed_letter,
+    game_leaderboard,
+    game_over,
+    id_constant,
+    letter_exist,
+    no_questions,
+    noone_played,
+    total_points,
+    user_kicked, choose_stop_button, choose_letter_button, choose_word_button,
+)
 from kts_backend.store.game.utils import chat_id_converter
 from kts_backend.users.models import User
 
@@ -124,29 +132,28 @@ class GameAccessor(BaseAccessor):
         if chat_id not in self.locks:
             self.locks[chat_id] = asyncio.Lock()
         async with self.locks[chat_id]:
-            if message == choice_list[2]:
+            if message == choose_stop_button:
                 await self.no_players_left(game, chat_id)
-                await self.last_action_change(game, message)
                 return None
             user = await self.valid_user_check(game, user_id)
             if user is None:
                 return None
             elif message in choice_list:
-                if message != game.last_action:
+                if message != game.status_last_action:
                     await self.last_action_change(game, message)
                 await self.app.store.vk_api.send_message(
                     message=f"{user.name} {action_for_decision}",
                     chat_id=chat_id,
                     keyboard=await self.app.store.vk_api.get_default_keyboard(),
                 )
-            elif not game.last_action:
+            elif not game.status_last_action:
                 return None
             else:
-                if game.last_action == choice_list[0]:
+                if game.status_last_action == choose_letter_button:
                     await self.choose_letter(
                         game, message, user, chat_id, game.players
                     )
-                elif game.last_action == choice_list[1]:
+                elif game.status_last_action == choose_word_button:
                     await self.choose_word(
                         game, message, user, chat_id, game.players
                     )
@@ -183,6 +190,7 @@ class GameAccessor(BaseAccessor):
                     await self.plus_points("word", game, user)
                     game = await self.get_game(chat_id + id_constant)
                     await self.game_over(user, chat_id, game)
+                    return None
                 else:
                     counter = game.question.answer_lower.count(
                         new_message_lower
@@ -197,7 +205,7 @@ class GameAccessor(BaseAccessor):
                     Game,
                     {"id": game.id},
                     {
-                        "last_action": new_message,
+                        "status_last_action": new_message,
                         "letters_revealed": revealed_letters,
                     },
                 )
@@ -237,6 +245,7 @@ class GameAccessor(BaseAccessor):
                 await self.plus_points("word", game, user)
                 game = await self.get_game(chat_id + id_constant)
                 await self.game_over(user, chat_id, game)
+                return None
             else:
                 await self.app.store.vk_api.send_message(
                     message=f"{user.name} {user.last_name} {user_kicked}",
@@ -287,7 +296,7 @@ class GameAccessor(BaseAccessor):
 
     async def game_over(self, user: User, chat_id: int, game: Game) -> None:
         await self.app.store.vk_api.send_message(
-            message=f"{user.name} {user.last_name} поздравляю вы выиграли! {game.question.answer} верный ответ! "
+            message=f"{user.name} {user.last_name}, поздравляю вы выиграли! <br> {game.question.answer} - верный ответ! "
             f"{await self.get_game_leaderboard(game)}",
             chat_id=chat_id,
             keyboard=await self.app.store.vk_api.get_preview_keyboard(),
@@ -295,10 +304,10 @@ class GameAccessor(BaseAccessor):
         await self.app.database.orm_update(
             Game,
             {"id": game.id},
-            {"status": "finish"},
+            {"status_last_action": "finish"},
         )
         data = {player.user_vk_id: player.points for player in game.scores}
-        self.logger.info(f"Я ТУТ Я ТУТ! {data}")
+        self.logger.info(data)
         whens = [
             (User.vk_id == id, User.total_points + points)
             for id, points in data.items()
@@ -319,10 +328,10 @@ class GameAccessor(BaseAccessor):
             ): gamescore.points
             for gamescore in game.scores
         }
-        output = ", ".join(
-            [f"{key}: {value}" for key, value in leaderboard.items()]
+        output = "".join(
+            [f"{key} - {value} <br>" for key, value in leaderboard.items()]
         )
-        return f"{game_leaderboard} {output}"
+        return f"{game_leaderboard} <br> {output}"
 
     async def get_world_leaderboard(self, chat_id: int) -> str:
         users = await self.app.store.vk_api.get_conversation_members(chat_id)
@@ -340,10 +349,10 @@ class GameAccessor(BaseAccessor):
             f"{user.name} {user.last_name}": user.total_points
             for user in chat_users
         }
-        output = ", ".join(
-            [f"{key}: {value}" for key, value in leaderboard.items()]
+        output = "".join(
+            [f"{key} - {value} <br>" for key, value in leaderboard.items()]
         )
-        return f"{total_points} {output}"
+        return f"{total_points} <br> {output}"
 
     async def plus_points(
         self, type: str, game: Game, user: User, counter: int = 1
@@ -364,7 +373,7 @@ class GameAccessor(BaseAccessor):
         await self.app.database.orm_update(
             Game,
             {"id": game.id},
-            {"last_action": new_message},
+            {"status_last_action": new_message},
         )
 
     async def get_leaderboard(self) -> list:
@@ -391,8 +400,20 @@ class GameAccessor(BaseAccessor):
         await self.app.database.orm_update(
             Game,
             {"id": game.id},
-            {"status": "finish"},
+            {"status_last_action": "finish"},
         )
+        data = {player.user_vk_id: player.points for player in game.scores}
+        self.logger.info(data)
+        whens = [
+            (User.vk_id == id, User.total_points + points)
+            for id, points in data.items()
+        ]
+        query = (
+            update(User)
+            .values(total_points=case(*whens, else_=User.total_points))
+            .where(User.vk_id.in_(data.keys()))
+        )
+        await self.app.database.orm_list_update(query)
 
     async def valid_user_check(
         self, game: Game, user_id: int

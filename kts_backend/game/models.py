@@ -34,7 +34,7 @@ class Game:
     created_at: datetime = field(
         default_factory=datetime.utcnow, metadata={"sa": Column(DateTime)}
     )
-    status: str = field(default="start", metadata={"sa": Column(String)})
+    status_last_action: str = field(default="start", metadata={"sa": Column(String)})
     turn_user_id: Optional[int] = field(default=None, metadata={"sa": Column(BigInteger, nullable=True)})
     players: List[User] = field(
         default_factory=list,
@@ -53,4 +53,3 @@ class Game:
         },
     )
     letters_revealed: str = field(default="", metadata={"sa": Column(String)})
-    last_action: str = field(default="", metadata={"sa": Column(String)})

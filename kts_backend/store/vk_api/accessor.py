@@ -150,7 +150,7 @@ class VkApiAccessor(BaseAccessor):
         ) as resp:
             data = await resp.json()
             users = data["response"]["profiles"]
-            self.logger.info(f'Я ТУТ {users}')
+            self.logger.info(f"Я ТУТ {users}")
             return [
                 User(
                     vk_id=user["id"],
@@ -176,16 +176,14 @@ class VkApiAccessor(BaseAccessor):
             "inline": True,
             "buttons": [
                 [
-                    await self.one_button_creater(
-                        "Инфо 🌍", "positive"
-                    ),
+                    await self.one_button_creater("Инфо 🌍", "positive"),
                     await self.one_button_creater("Старт 🚀", "positive"),
                 ],
                 [
                     await self.one_button_creater(
                         "Таблица Лидеров 🏆", "positive"
                     )
-                ]
+                ],
             ],
         }
         keyboard = json.dumps(keyboard, ensure_ascii=False).encode("utf-8")
@@ -205,11 +203,7 @@ class VkApiAccessor(BaseAccessor):
         keyboard = {
             "inline": True,
             "buttons": [
-                [
-                    await self.one_button_creater(
-                        "Выбрать букву 💬", "positive"
-                    )
-                ],
+                [await self.one_button_creater("Выбрать букву 💬", "positive")],
                 [
                     await self.one_button_creater(
                         "Назвать слово 🗣", "positive"
@@ -219,7 +213,7 @@ class VkApiAccessor(BaseAccessor):
                     await self.one_button_creater(
                         "Остановить игру ⛔", "negative"
                     ),
-                ]
+                ],
             ],
         }
         keyboard = json.dumps(keyboard, ensure_ascii=False).encode("utf-8")
