@@ -3,8 +3,12 @@ from logging import getLogger
 
 from aiolimiter import AsyncLimiter
 
-from kts_backend.store.bot.text_constants import (INFO_CMD, LEADERBOARD_CMD,
-                                                  START_CMD, next_turn)
+from kts_backend.store.bot.text_constants import (
+    INFO_CMD,
+    LEADERBOARD_CMD,
+    START_CMD,
+    next_turn,
+)
 from kts_backend.store.game.utils import about_game, chat_id_converter
 from kts_backend.store.vk_api.datas import Update
 
@@ -29,13 +33,11 @@ class BotManager:
             limiter = self.user_limiters[user_id]
             async with limiter:
                 new_message = update.object.message.text.split("] ")[-1]
-                chat_id = chat_id_converter(
-                    update.object.message.peer_id
-                )
+                chat_id = chat_id_converter(update.object.message.peer_id)
                 current_game = await self.app.store.game.get_game(
                     update.object.message.peer_id
                 )
-                if current_game and current_game.status == "start":
+                if current_game and current_game.status_last_action != "finish":
                     await self.app.store.game.game_process(
                         game=current_game, message=new_message, user_id=user_id
                     )
