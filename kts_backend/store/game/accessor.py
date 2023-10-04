@@ -1,5 +1,4 @@
 import asyncio
-import random
 from typing import Optional, Union
 
 from sqlalchemy import case, desc, func, select, update
@@ -25,12 +24,18 @@ from kts_backend.store.game.text_constants import (
     no_questions,
     noone_played,
     total_points,
-    user_kicked, choose_stop_button, choose_letter_button, choose_word_button,
+    user_kicked,
+    choose_stop_button,
+    choose_letter_button,
+    choose_word_button,
+    last_player,
 )
 from kts_backend.store.game.utils import chat_id_converter
 from kts_backend.users.models import User
 
 questions = {}
+turn_counter = {}
+only_one_flag = {}
 
 
 class GameAccessor(BaseAccessor):
@@ -115,7 +120,7 @@ class GameAccessor(BaseAccessor):
         if creating:
             return None
         game = await self.get_game(chat_id)
-        user = random.choice(game.players)
+        user = game.players[0]
         if game is None:
             return None
         await self.app.database.orm_update(
@@ -123,6 +128,8 @@ class GameAccessor(BaseAccessor):
             {"id": game.id},
             {"turn_user_id": user.vk_id},
         )
+        turn_counter[game.chat_id] = 0
+        only_one_flag[game.chat_id] = None
         return (game, user)
 
     async def game_process(
@@ -136,7 +143,11 @@ class GameAccessor(BaseAccessor):
                 await self.no_players_left(game, chat_id)
                 return None
             user = await self.valid_user_check(game, user_id)
-            if user is None:
+            if only_one_flag.get(game.chat_id):
+                await self.choose_word(
+                    game, message, user, chat_id, game.players
+                )
+            elif user is None:
                 return None
             elif message in choice_list:
                 if message != game.status_last_action:
@@ -209,22 +220,15 @@ class GameAccessor(BaseAccessor):
                         "letters_revealed": revealed_letters,
                     },
                 )
-            elif new_message_lower in game.letters_revealed:
-                await self.app.store.vk_api.send_message(
-                    message=f"{user.name} {user.last_name} {letter_exist}",
-                    chat_id=chat_id,
-                    keyboard=await self.app.store.vk_api.get_default_keyboard(),
-                )
             else:
-                await self.app.store.vk_api.send_message(
-                    message=f"{user.name} {failed_letter}",
-                    chat_id=chat_id,
-                    keyboard=await self.app.store.vk_api.get_default_keyboard(),
+                await self.failed_letter(
+                    new_message_lower,
+                    game,
+                    user,
+                    chat_id,
+                    game_users,
+                    new_message,
                 )
-                await self.choose_next_user_for_answer(
-                    game, user, chat_id, game_users
-                )
-                await self.last_action_change(game, new_message)
 
     async def choose_word(
         self,
@@ -252,12 +256,6 @@ class GameAccessor(BaseAccessor):
                     chat_id=chat_id,
                     keyboard=await self.app.store.vk_api.get_default_keyboard(),
                 )
-                counter = sum(
-                    map(lambda player: player.user_is_active, game.scores)
-                )
-                if counter == 1:
-                    await self.no_players_left(game, chat_id)
-                    return None
                 await self.app.database.orm_update(
                     GameScore,
                     {
@@ -266,30 +264,54 @@ class GameAccessor(BaseAccessor):
                     },
                     {"user_is_active": False},
                 )
+                counter = sum(
+                    map(lambda player: player.user_is_active, game.scores)
+                )
+                if counter == 1:
+                    await self.no_players_left(game, chat_id)
+                    return None
+                if counter == 2:
+                    only_one_flag[game.chat_id] = True
+                    await self.choose_next_user_for_answer(
+                        game, chat_id, game_users, user=user.vk_id, message=last_player
+                    )
+                    return None
                 await self.choose_next_user_for_answer(
-                    game, user, chat_id, game_users
+                    game, chat_id, game_users, user=user.vk_id
                 )
             await self.last_action_change(game, new_message)
 
     async def choose_next_user_for_answer(
         self,
         game: Game,
-        user: User,
         chat_id: int,
         game_users: list[User],
+        user: int = None,
+        message: str = next_turn,
     ) -> None:
-        random_user = random.choice(game_users)
-        while user == random_user:
-            random_user = random.choice(game_users)
+        not_valid_users = [
+            player.user_vk_id
+            for player in game.scores
+            if not player.user_is_active
+        ] + [user]
+        while True:
+            if turn_counter[game.chat_id] == len(game.players) - 1:
+                turn_counter[game.chat_id] = 0
+            else:
+                turn_counter[game.chat_id] += 1
+            user = game_users[turn_counter[game.chat_id]]
+
+            if user.vk_id not in not_valid_users:
+                break
         await self.app.database.orm_update(
             Game,
             {
                 "id": game.id,
             },
-            {"turn_user_id": random_user.vk_id},
+            {"turn_user_id": user.vk_id},
         )
         await self.app.store.vk_api.send_message(
-            message=f"{random_user.name} {random_user.last_name} {next_turn}",
+            message=f"{user.name} {user.last_name} {message}",
             chat_id=chat_id,
             keyboard=await self.app.store.vk_api.get_game_keyboard(),
         )
@@ -328,9 +350,8 @@ class GameAccessor(BaseAccessor):
             ): gamescore.points
             for gamescore in game.scores
         }
-        output = "".join(
-            [f"{key} - {value} <br>" for key, value in leaderboard.items()]
-        )
+        sorted_leaderboard = sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)
+        output = "".join([f"{key} - {value} <br>" for key, value in sorted_leaderboard])
         return f"{game_leaderboard} <br> {output}"
 
     async def get_world_leaderboard(self, chat_id: int) -> str:
@@ -355,11 +376,11 @@ class GameAccessor(BaseAccessor):
         return f"{total_points} <br> {output}"
 
     async def plus_points(
-        self, type: str, game: Game, user: User, counter: int = 1
+        self, typeaction: str, game: Game, user: User, counter: int = 1
     ) -> None:
         update_values = {
             "points": GameScore.points + counter
-            if type == "letter"
+            if typeaction == "letter"
             else GameScore.points + 10
         }
 
@@ -439,3 +460,27 @@ class GameAccessor(BaseAccessor):
         ):
             return None
         return user
+
+    async def failed_letter(
+        self,
+        new_message_lower: str,
+        game: Game,
+        user: User,
+        chat_id: int,
+        game_users,
+        new_message: str,
+    ) -> None:
+        if new_message_lower in game.letters_revealed:
+            await self.app.store.vk_api.send_message(
+                message=f"{user.name} {user.last_name} {letter_exist}",
+                chat_id=chat_id,
+                keyboard=await self.app.store.vk_api.get_default_keyboard(),
+            )
+        else:
+            await self.app.store.vk_api.send_message(
+                message=f"{user.name} {failed_letter}",
+                chat_id=chat_id,
+                keyboard=await self.app.store.vk_api.get_default_keyboard(),
+            )
+            await self.choose_next_user_for_answer(game, chat_id, game_users)
+            await self.last_action_change(game, new_message)

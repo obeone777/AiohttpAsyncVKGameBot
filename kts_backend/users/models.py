@@ -24,7 +24,7 @@ class User:
         default_factory=list,
         metadata={
             "sa": relationship(
-                "Game", secondary=game_user_table, back_populates="players"
+                "Game", secondary=game_user_table
             )
         },
     )
